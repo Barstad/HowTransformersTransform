@@ -61,42 +61,59 @@ PROMPT, TOKENIZER, HIDDEN_STATES, EMBEDDINGS_TABLE, UMAP_MODEL, UMAP_2D, TOKEN_I
 class Prompt(BaseModel):
     text: Optional[str] = Field(default=PROMPT)
     
+class MostSimilarGlobalRequest(BaseModel):
+    token_idx: int
+    prompt: Optional[Prompt]
+    layer_idx: Optional[int] = Field(default=0)
+    num_tokens: Optional[int] = Field(default=100)
+
 class MostSimilarGlobalResponse(BaseModel):
     tokens: list[str]
     similarities: list[float]
 
-class MostSimilarGlobalRequest(BaseModel):
-    token_idx: int
-    prompt: Prompt
-
-class TokenizeResponse(BaseModel):
+class GetTokenResponse(BaseModel):
     tokens: list[str]
 
-class TokenSimilaritiesResponse(BaseModel):
-    tokens: list[str]
-    similarities: list[float]
-
-class RootResponse(BaseModel):
-    message: str
+class GetTokenIdsResponse(BaseModel):
+    token_ids: list[int]
 
 class TokenSimilaritiesRequest(BaseModel):
     token_idx: int
     prompt: Prompt
 
+class TokenSimilaritiesResponse(BaseModel):
+    tokens: list[str]
+    similarities: list[float]
+
+class CloudResponse(BaseModel):
+    tokens: list[str]
+    x: list[float]
+    y: list[float]
+
+class RootResponse(BaseModel):
+    message: str
+
 def tokenize_prompt(token_ids: list[int]) -> dict[str, list]:
     tokens = TOKENIZER.convert_ids_to_tokens(token_ids)
-    # tokens = [token.replace("▁", " ") for token in tokens if token != "<0x0A>"]
+    tokens = [token.replace("▁", " ") for token in tokens]
     return {"tokens": tokens}
 
+def get_2d_cloud():
+    return dict(
+        x=UMAP_2D[:, 0],
+        y=UMAP_2D[:, 1],
+        tokens=TOKENIZER.convert_ids_to_tokens(np.arange(len(UMAP_2D)))
+    )
 
-@app.post("/tokenize", response_model=TokenizeResponse)
-def tokenize(prompt: Optional[Prompt]) -> TokenizeResponse:
-    if prompt.text:
-        prompt = prompt.text
-    else:
-        prompt = PROMPT
-    token_ids = TOKENIZER.encode(prompt, add_special_tokens=False)
-    return TokenizeResponse(**tokenize_prompt(token_ids))
+
+@app.post("/get_tokens_from_ids", response_model=GetTokenResponse)
+def get_tokens_from_ids(token_ids: list[int]) -> GetTokenResponse:
+    return TOKENIZER.convert_ids_to_tokens(token_ids)
+
+
+@app.post("/get_ids_from_tokens", response_model=GetTokenIdsResponse)
+def get_ids_from_tokens(tokens: list[str]) -> GetTokenIdsResponse:
+    return TOKENIZER.convert_tokens_to_ids(tokens)
 
 
 @app.post("/token_similarities", response_model=TokenSimilaritiesResponse)
@@ -113,16 +130,20 @@ def get_token_similarities(request: TokenSimilaritiesRequest) -> TokenSimilariti
     similarities = cosine_similarity_except_self(current_emb, prompt_embeddings).flatten().tolist()
     
     tokens = tokenize_prompt(TOKENIZER.encode(prompt, add_special_tokens=False))["tokens"]
-    
     return TokenSimilaritiesResponse(
         tokens=tokens,
         similarities=similarities
     )
 
 @app.post("/get_most_similar_global", response_model=MostSimilarGlobalResponse)
-def get_most_similar_global(request: TokenSimilaritiesRequest) -> MostSimilarGlobalResponse:
+def get_most_similar_global(request: MostSimilarGlobalRequest) -> MostSimilarGlobalResponse:
     token_idx = request.token_idx
-    prompt = request.prompt.text if request.prompt.text else PROMPT
+    layer_idx = request.layer_idx
+    num_tokens = request.num_tokens
+    if request.prompt.text:
+        prompt = request.prompt.text
+    else:
+        prompt = PROMPT
 
     token_ids = get_prompt_token_ids(prompt, TOKENIZER)
     prompt_embeddings = get_token_embeddings(token_ids, EMBEDDINGS_TABLE)
@@ -132,16 +153,20 @@ def get_most_similar_global(request: TokenSimilaritiesRequest) -> MostSimilarGlo
     all_similarities = cosine_similarity(current_emb, EMBEDDINGS_TABLE).flatten()
 
     # Get the top 50 most similar tokens
-    top_k = 50
-    top_indices = nlargest(top_k, range(len(all_similarities)), key=all_similarities.__getitem__)
-    top_similarities = [all_similarities[i] for i in top_indices]
-    top_tokens = [TOKENIZER.decode([i]) for i in top_indices]
+    top_k = num_tokens
+    sort_idx = np.argsort(all_similarities)[::-1]
+    top_indices = sort_idx[1:top_k+1] # exclude the current token
+    top_similarities = all_similarities[top_indices]
+    tokens = TOKENIZER.batch_decode(top_indices)
 
     return MostSimilarGlobalResponse(
-        tokens=top_tokens,
+        tokens=tokens,
         similarities=top_similarities
     )
 
+@app.post("/get_2d_cloud", response_model=CloudResponse)
+def get_2d_cloud() -> CloudResponse:
+    return CloudResponse(**get_2d_cloud())
 
 @app.get("/", response_model=RootResponse)
 def read_root() -> RootResponse:
