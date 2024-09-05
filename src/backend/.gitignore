@@ -1,0 +1,10 @@
+.DS_Store
+.venv
+*.pyc
+*.pkl
+*__pycache__/
+*.npy
+*.csv
+*.json
+*.log
+*data/

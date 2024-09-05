@@ -1,0 +1,17 @@
+torch
+numpy<2
+transformers==4.44.2
+tqdm
+scikit-learn
+umap-learn[plot]
+
+# API
+fastapi[standard]
+pydantic
+uvicorn
+
+# For jupyter notebook
+ipykernel
+nbformat>=4.2.0
+ipywidgets
+
