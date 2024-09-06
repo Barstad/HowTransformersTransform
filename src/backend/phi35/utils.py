@@ -19,17 +19,20 @@ def load_model():
     return model
 
 def load_tokenizer():
-    
     path = "data/tokenizer.pkl"
     if not os.path.exists(path):
         print("Creating new tokenizer...")
         from transformers import AutoTokenizer
         tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3.5-mini-instruct")
-        pickle.dump(tokenizer, open(path, "wb"))
+        with open(path, "wb") as f:
+            pickle.dump(tokenizer, f)
     else:
         print("Loading tokenizer...")
-        tokenizer = pickle.load(open(path, "rb"))
+        with open(path, "rb") as f:
+            tokenizer = pickle.load(f)
     print("Tokenizer loaded successfully.")
+
+    assert tokenizer is not None, "Tokenizer load failed."
     return tokenizer
 
 def get_prompt_token_ids(prompt:str, tokenizer):
@@ -43,7 +46,8 @@ def get_hidden_states(prompt, tokenizer, model=None, recalculate=False):
     path = "data/out.pkl"   
     if not recalculate and os.path.exists(path):
         print("Loading cached output")
-        out = pickle.load(open(path, "rb"))
+        with open(path, "rb") as f:
+            out = pickle.load(f)
     else:
         import torch
         print("Recalculating hidden states...")
@@ -53,7 +57,8 @@ def get_hidden_states(prompt, tokenizer, model=None, recalculate=False):
         token_ids = get_prompt_token_ids(prompt, tokenizer)
         with torch.inference_mode():
             out = model(token_ids, output_hidden_states=True)
-        pickle.dump(out, open(path, "wb"))
+        with open(path, "wb") as f:
+            pickle.dump(out, f)
         print("Hidden states calculated and saved.")
     return out
 
@@ -87,13 +92,15 @@ def get_umap_model(embeddings_table = None, model = None, recalculate=False):
     path = "data/umap.pkl"
     if not recalculate and os.path.exists(path):
         print("Loading existing UMAP model")
-        umap_model = pickle.load(open(path, "rb"))
+        with open(path, "rb") as f:
+            umap_model = pickle.load(f)
     else:
         if embeddings_table is None:
             embeddings_table = get_token_embeddings_table(model)
         print("Creating new UMAP model...")
         umap_model = umap.UMAP(n_neighbors=20, metric="cosine").fit(embeddings_table)
-        pickle.dump(umap_model, open(path, "wb"))
+        with open(path, "wb") as f:
+            pickle.dump(umap_model, f)
         print("UMAP model created and saved.")
     return umap_model
 

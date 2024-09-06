@@ -6,9 +6,9 @@ scikit-learn
 umap-learn[plot]
 
 # API
-fastapi[standard]
+fastapi
+uvicorn[standard]
 pydantic
-uvicorn
 
 # For jupyter notebook
 ipykernel

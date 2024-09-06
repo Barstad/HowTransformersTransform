@@ -1,12 +1,14 @@
 from typing import Optional
 import numpy as np
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import BaseModel, Field
 
 import sys
 import os
+from itertools import compress
+
 
 # Add the current directory to the system path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -55,7 +57,20 @@ def cosine_similarity_except_self(emb, embeddings):
     return normalized_similarities
 
 
-PROMPT, TOKENIZER, HIDDEN_STATES, EMBEDDINGS_TABLE, UMAP_MODEL, UMAP_2D, TOKEN_IDS = load_data()
+PROMPT = PROMPT
+TOKENIZER = None
+HIDDEN_STATES = None
+EMBEDDINGS_TABLE = None
+UMAP_MODEL = None
+UMAP_2D = None
+TOKEN_IDS = None
+
+@app.on_event("startup")
+async def startup_event():
+    print("Loading data")
+    global PROMPT, TOKENIZER, HIDDEN_STATES, EMBEDDINGS_TABLE, UMAP_MODEL, UMAP_2D, TOKEN_IDS
+    PROMPT, TOKENIZER, HIDDEN_STATES, EMBEDDINGS_TABLE, UMAP_MODEL, UMAP_2D, TOKEN_IDS = load_data()
+    print("Data loaded")
 
 
 class Prompt(BaseModel):
@@ -85,24 +100,46 @@ class TokenSimilaritiesResponse(BaseModel):
     tokens: list[str]
     similarities: list[float]
 
+class CloudRequest(BaseModel):
+    page: int = Field(default=1, ge=1, description="Page number")
+    page_size: int = Field(default=1000, ge=1, le=50000, description="Number of items per page")
+
 class CloudResponse(BaseModel):
     tokens: list[str]
     x: list[float]
     y: list[float]
+    total_count: int
+    page: int
+    page_size: int
 
 class RootResponse(BaseModel):
     message: str
+
 
 def tokenize_prompt(token_ids: list[int]) -> dict[str, list]:
     tokens = TOKENIZER.convert_ids_to_tokens(token_ids)
     tokens = [token.replace("▁", " ") for token in tokens]
     return {"tokens": tokens}
 
-def get_2d_cloud():
+
+def get_2d_cloud_points(page: int = 1, page_size: int = 1000):
+    tokens = TOKENIZER.convert_ids_to_tokens(np.arange(len(UMAP_2D)))
+    mask = [token is not None for token in tokens]
+    filtered_tokens = list(compress(tokens, mask))
+    filtered_x = UMAP_2D[:, 0][mask].tolist()
+    filtered_y = UMAP_2D[:, 1][mask].tolist()
+
+    total_count = len(filtered_tokens)
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+
     return dict(
-        x=UMAP_2D[:, 0],
-        y=UMAP_2D[:, 1],
-        tokens=TOKENIZER.convert_ids_to_tokens(np.arange(len(UMAP_2D)))
+        tokens=filtered_tokens[start_idx:end_idx],
+        x=filtered_x[start_idx:end_idx],
+        y=filtered_y[start_idx:end_idx],
+        total_count=total_count,
+        page=page,
+        page_size=page_size
     )
 
 
@@ -125,15 +162,14 @@ def get_token_similarities(request: TokenSimilaritiesRequest) -> TokenSimilariti
     prompt_embeddings = get_token_embeddings(token_ids, EMBEDDINGS_TABLE)
 
     current_emb = prompt_embeddings[token_idx].reshape(1, -1)
-    
-    # Calculate similarities
     similarities = cosine_similarity_except_self(current_emb, prompt_embeddings).flatten().tolist()
-    
     tokens = tokenize_prompt(TOKENIZER.encode(prompt, add_special_tokens=False))["tokens"]
+
     return TokenSimilaritiesResponse(
         tokens=tokens,
         similarities=similarities
     )
+
 
 @app.post("/get_most_similar_global", response_model=MostSimilarGlobalResponse)
 def get_most_similar_global(request: MostSimilarGlobalRequest) -> MostSimilarGlobalResponse:
@@ -164,15 +200,18 @@ def get_most_similar_global(request: MostSimilarGlobalRequest) -> MostSimilarGlo
         similarities=top_similarities
     )
 
+
 @app.post("/get_2d_cloud", response_model=CloudResponse)
-def get_2d_cloud() -> CloudResponse:
-    return CloudResponse(**get_2d_cloud())
+def get_2d_cloud(request: CloudRequest) -> CloudResponse:
+    data = get_2d_cloud_points(request.page, request.page_size)
+    return CloudResponse(**data)
+
 
 @app.get("/", response_model=RootResponse)
 def read_root() -> RootResponse:
     return RootResponse(message="Welcome to the Phi-3 Transformer Visualization API")
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    print("Application is shutting down")
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
