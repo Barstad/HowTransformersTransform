@@ -2,8 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import axios from 'axios';
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group"
-import { MoveIcon, MousePointerClick, ZoomOutIcon } from "lucide-react";
-import { brushSelection } from 'd3';
+import { MoveIcon, HomeIcon, BoxSelect } from "lucide-react";
 
 interface CloudPoint {
   tokens: string[];
@@ -19,6 +18,7 @@ interface SelectedPoints {
 }
 
 const Plot2dPointsD3: React.FC = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const brushRef = useRef<d3.BrushBehavior<unknown> | null>(null);
@@ -29,10 +29,24 @@ const Plot2dPointsD3: React.FC = () => {
   const [activeTool, setActiveTool] = useState<string>("move");
   const [brushExtent, setBrushExtent] = useState<[[number, number], [number, number]] | null>(null);
   const currentZoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-  const width = 600;
-  const height = 400;
+  const aspectRatio = 3 / 2;
   const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.clientWidth;
+        const height = width / aspectRatio;
+        setDimensions({ width, height });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
 
   useEffect(() => {
     const fetchCloudData = async () => {
@@ -51,18 +65,18 @@ const Plot2dPointsD3: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!cloudData || !svgRef.current) return;
+    if (!cloudData || !svgRef.current || dimensions.width === 0 || dimensions.height === 0) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
     const x = d3.scaleLinear()
       .domain(d3.extent(cloudData.x) as [number, number])
-      .range([margin.left, width - margin.right]);
+      .range([margin.left, dimensions.width - margin.right]);
 
     const y = d3.scaleLinear()
       .domain(d3.extent(cloudData.y) as [number, number])
-      .range([height - margin.bottom, margin.top]);
+      .range([dimensions.height - margin.bottom, margin.top]);
 
     const g = svg.append('g');
 
@@ -97,7 +111,7 @@ const Plot2dPointsD3: React.FC = () => {
 
     // Add axes
     const xAxis = g.append('g')
-      .attr('transform', `translate(0,${height - margin.bottom})`)
+      .attr('transform', `translate(0,${dimensions.height - margin.bottom})`)
       .call(d3.axisBottom(x));
 
     const yAxis = g.append('g')
@@ -120,7 +134,7 @@ const Plot2dPointsD3: React.FC = () => {
     zoomRef.current = zoom;
 
     const brush = d3.brush()
-      .extent([[0, 0], [width, height]])
+      .extent([[0, 0], [dimensions.width, dimensions.height]])
       .on("end", (event) => {
         if (!event.selection) {
           setBrushExtent(null);
@@ -167,7 +181,7 @@ const Plot2dPointsD3: React.FC = () => {
       }
     };
 
-  }, [cloudData, activeTool]);
+  }, [cloudData, activeTool, dimensions]);
 
   useEffect(() => {
     if (!brushExtent || !svgRef.current || !cloudData || !zoomRef.current) return;
@@ -178,10 +192,10 @@ const Plot2dPointsD3: React.FC = () => {
     const transform = zoomTransform || d3.zoomIdentity;
     const xScale = transform.rescaleX(d3.scaleLinear()
       .domain(d3.extent(cloudData.x) as [number, number])
-      .range([margin.left, width - margin.right]));
+      .range([margin.left, dimensions.width - margin.right]));
     const yScale = transform.rescaleY(d3.scaleLinear()
       .domain(d3.extent(cloudData.y) as [number, number])
-      .range([height - margin.bottom, margin.top]));
+      .range([dimensions.height - margin.bottom, margin.top]));
 
 
     const selectedIndices: number[] = [];
@@ -207,47 +221,52 @@ const Plot2dPointsD3: React.FC = () => {
 
     // Zoom to the selected region
     if (selectedX.length > 0 && selectedY.length > 0) {
-      const padding = 50; // Padding around the selected area
+      const padding = 20; // Reduced padding
       const xExtent = d3.extent(selectedX) as [number, number];
       const yExtent = d3.extent(selectedY) as [number, number];
 
       const xScale = d3.scaleLinear()
         .domain(d3.extent(cloudData.x) as [number, number])
-        .range([margin.left, width - margin.right]);
+        .range([margin.left, dimensions.width - margin.right]);
 
       const yScale = d3.scaleLinear()
         .domain(d3.extent(cloudData.y) as [number, number])
-        .range([height - margin.bottom, margin.top]);
+        .range([dimensions.height - margin.bottom, margin.top]);
 
-      const xRange = xScale.range();
-      const yRange = yScale.range();
-
-      const dx = xExtent[1] - xExtent[0];
-      const dy = yExtent[1] - yExtent[0];
       const x = (xExtent[0] + xExtent[1]) / 2;
       const y = (yExtent[0] + yExtent[1]) / 2;
-      const scale = Math.min(
-        0.9 / Math.max(dx / (xRange[1] - xRange[0]), dy / (yRange[0] - yRange[1])),
-        8
-      );
-      const translate = [width / 2 - scale * xScale(x), height / 2 - scale * yScale(y)];
+
+      // Calculate scale based on the selection size relative to the SVG size
+      const selectionWidth = Math.abs(x1 - x0);
+      const selectionHeight = Math.abs(y1 - y0);
+      const scaleX = (dimensions.width - padding * 2) / selectionWidth;
+      const scaleY = (dimensions.height - padding * 2) / selectionHeight;
+      const scale = Math.min(scaleX, scaleY);
+
+      // Ensure the scale is not smaller than 1 (no zooming out)
+      const limitedScale = Math.max(1, scale);
+
+      const translate = [
+        dimensions.width / 2 - limitedScale * xScale(x),
+        dimensions.height / 2 - limitedScale * yScale(y)
+      ];
 
       svg.transition().duration(750).call(
         zoomRef.current.transform,
-        d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
+        d3.zoomIdentity.translate(translate[0], translate[1]).scale(limitedScale)
       ).on("end", () => {
         // Clear the brush after zooming
         if (brushRef.current) {
           svg.select<SVGGElement>(".brush").call(brushRef.current.move as any, null);
         }
-        currentZoomRef.current = d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale); // Update currentZoom ref
+        currentZoomRef.current = d3.zoomIdentity.translate(translate[0], translate[1]).scale(limitedScale);
       });
 
       // Clear brush extent
       setBrushExtent(null);
     }
 
-  }, [brushExtent, cloudData, zoomRef]);
+  }, [brushExtent, cloudData, zoomRef, dimensions]);
 
   console.log(selectedPoints)
 
@@ -276,8 +295,8 @@ const Plot2dPointsD3: React.FC = () => {
     }
   };
 
-  if (!cloudData) {
-    return <div>Loading...</div>;
+  if (!cloudData || dimensions.width === 0 || dimensions.height === 0) {
+    return <div ref={containerRef} className="plot-container w-full" style={{ paddingBottom: `${100 / aspectRatio}%` }}>Loading...</div>;
   }
 
   return (
@@ -303,7 +322,7 @@ const Plot2dPointsD3: React.FC = () => {
             color: activeTool === "select" ? 'white' : 'black'
           }}
         >
-          <MousePointerClick className="h-4 w-4" />
+          <BoxSelect className="h-4 w-4" />
         </ToggleGroupItem>
         <ToggleGroupItem 
           value="reset" 
@@ -315,14 +334,18 @@ const Plot2dPointsD3: React.FC = () => {
             color: activeTool === "reset" ? 'white' : 'black'
           }}
         >
-          <ZoomOutIcon className="h-4 w-4" />
+          <HomeIcon className="h-4 w-4" />
         </ToggleGroupItem>
       </ToggleGroup>
-      <div style={{ border: '1px solid black', width: `${width}px`, height: `${height}px` }}>
-        <svg ref={svgRef} width={width} height={height}></svg>
-      </div>
-      <div>
-        Selected points: {selectedPoints.tokens.join(', ')}
+      <div ref={containerRef} className="plot-container w-full" style={{ paddingBottom: `${100 / aspectRatio}%`, position: 'relative' }}>
+        <svg 
+          ref={svgRef}
+          width="100%" 
+          height="100%" 
+          viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+          preserveAspectRatio="xMidYMid meet"
+          style={{ position: 'absolute', top: 0, left: 0 }}
+        ></svg>
       </div>
     </div>
   );

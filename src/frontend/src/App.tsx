@@ -12,27 +12,27 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="app-container">
-      <header className="app-header">
-        <h1 className="main-title">Token Analysis Dashboard</h1>
+    <div className="app-container min-h-screen flex flex-col">
+      <header className="p-4">
+        <h1 className="text-2xl font-bold">Token Analysis Dashboard</h1>
       </header>
-      <main className="app-main">
-        <section className="dashboard-section token-display-section">
-          <h2 className="section-title">Token Display</h2>
+      <main className="flex-grow flex flex-col p-4 gap-4">
+        <section className="token-display">
+          <h2 className="text-xl mb-2">Token Display</h2>
           <TokenDisplay onTokenClick={handleTokenClick} />
         </section>
-        <section className="dashboard-section word-cloud-section">
-          <h2 className="section-title">Word Cloud</h2>
-          <WordCloud 
-            selectedTokenIndex={selectedTokenIndex} 
-            width={800} 
-            height={600} 
-          />
-        </section>
-        <section className="dashboard-section plot-section">
-          <h2 className="section-title">2D Embeddings Plot</h2>
-          <Plot2dPointsD3 />
-        </section>
+        <div className="plots-container flex-grow flex flex-col sm:flex-row gap-4">
+          <section className="word-cloud flex-1">
+            <h2 className="text-xl mb-2">Word Cloud</h2>
+            <div className="h-full">
+              <WordCloud selectedTokenIndex={selectedTokenIndex} />
+            </div>
+          </section>
+          <section className="embeddings-plot flex-1">
+            <h2 className="text-xl mb-2">2D Projections</h2>
+            <Plot2dPointsD3 />
+          </section>
+        </div>
       </main>
     </div>
   );
