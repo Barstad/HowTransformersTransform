@@ -14,8 +14,11 @@ const App: React.FC = () => {
   return (
     <div className="app-container min-h-screen flex flex-col">
       <header className="p-4">
-        <h1 className="text-2xl font-bold">Token Analysis Dashboard</h1>
+        <h1 className="text-2xl font-bold">How Transformers Transform</h1>
       </header>
+      <p className="p-description flex flex-col p-4 gap-4">
+        Transformer models are mysterious things. A token goes through a machine, starting in one location, and ends up in another. This is an attempt to understand this journey a bit better. This tool explores how tokens transform as they move through the layers of a transformer model. The approach is simple, try to visualize how tokens relate by leveraging that they keep to the same embedding space. Lets explore how relations between tokens changes as they are transformed. They start out as en entry in an embedding matrix, and are gradually transformed into something else. This is fascinating, and hopefully this tool can help build some intuition.
+      </p>
       <main className="flex-grow flex flex-col p-4 gap-4">
         <section className="token-display">
           <h2 className="text-xl mb-2">Token Display</h2>
@@ -23,7 +26,7 @@ const App: React.FC = () => {
         </section>
         <div className="plots-container flex-grow flex flex-col sm:flex-row gap-4">
           <section className="word-cloud flex-1">
-            <h2 className="text-xl mb-2">Word Cloud</h2>
+            <h2 className="text-xl mb-2">Most similar tokens</h2>
             <div className="h-full">
               <WordCloud selectedTokenIndex={selectedTokenIndex} />
             </div>
