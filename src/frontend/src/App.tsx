@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import TokenDisplay from './components/TokenDisplay';
 import WordCloud from './components/WordCloud';
+import Plot2dPointsD3 from './components/Plot2dPointsD3';
 import './App.css'; // Add this import for custom styles
 
 const App: React.FC = () => {
   const [selectedTokenIndex, setSelectedTokenIndex] = useState<number>(0);
-  // You'll need to fetch or generate this data
-  const tokenVectors: Array<[number, number]> = [/* Your token vector data here */];
 
   const handleTokenClick = (index: number) => {
     setSelectedTokenIndex(index);
@@ -29,6 +28,10 @@ const App: React.FC = () => {
             width={800} 
             height={600} 
           />
+        </section>
+        <section className="dashboard-section plot-section">
+          <h2 className="section-title">2D Embeddings Plot</h2>
+          <Plot2dPointsD3 />
         </section>
       </main>
     </div>

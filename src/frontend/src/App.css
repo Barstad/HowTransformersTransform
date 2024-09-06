@@ -151,3 +151,14 @@
   padding-left: 0.5rem;
   text-align: center;
 }
+
+.tooltip {
+  position: absolute;
+  visibility: hidden;
+  background-color: white;
+  border: solid 1px #ccc;
+  border-radius: 5px;
+  padding: 10px;
+  font-size: 12px;
+  pointer-events: none;
+}
