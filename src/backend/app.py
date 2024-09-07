@@ -1,6 +1,6 @@
 from typing import Optional
 import numpy as np
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import BaseModel, Field
@@ -78,8 +78,8 @@ class Prompt(BaseModel):
     
 class MostSimilarGlobalRequest(BaseModel):
     token_idx: int
-    prompt: Optional[Prompt]
     layer_idx: Optional[int] = Field(default=0)
+    prompt: Optional[Prompt]
     num_tokens: Optional[int] = Field(default=100)
 
 class MostSimilarGlobalResponse(BaseModel):
@@ -95,6 +95,7 @@ class GetTokenIdsResponse(BaseModel):
 class TokenSimilaritiesRequest(BaseModel):
     token_idx: int
     prompt: Prompt
+    layer_idx: Optional[int] = Field(default=0)
 
 class TokenSimilaritiesResponse(BaseModel):
     tokens: list[str]
@@ -156,10 +157,15 @@ def get_ids_from_tokens(tokens: list[str]) -> GetTokenIdsResponse:
 @app.post("/token_similarities", response_model=TokenSimilaritiesResponse)
 def get_token_similarities(request: TokenSimilaritiesRequest) -> TokenSimilaritiesResponse:
     token_idx = request.token_idx
+    layer_idx = request.layer_idx
+
     prompt = request.prompt.text if request.prompt.text else PROMPT
 
     token_ids = get_prompt_token_ids(prompt, TOKENIZER)
-    prompt_embeddings = get_token_embeddings(token_ids, EMBEDDINGS_TABLE)
+    if layer_idx == 0:
+        prompt_embeddings = get_token_embeddings(token_ids, EMBEDDINGS_TABLE)
+    else:
+        prompt_embeddings = HIDDEN_STATES.hidden_states[layer_idx].squeeze(0)
 
     current_emb = prompt_embeddings[token_idx].reshape(1, -1)
     similarities = cosine_similarity_except_self(current_emb, prompt_embeddings).flatten().tolist()
@@ -182,7 +188,10 @@ def get_most_similar_global(request: MostSimilarGlobalRequest) -> MostSimilarGlo
         prompt = PROMPT
 
     token_ids = get_prompt_token_ids(prompt, TOKENIZER)
-    prompt_embeddings = get_token_embeddings(token_ids, EMBEDDINGS_TABLE)
+    if layer_idx == 0:
+        prompt_embeddings = get_token_embeddings(token_ids, EMBEDDINGS_TABLE)
+    else:
+        prompt_embeddings = HIDDEN_STATES.hidden_states[layer_idx].squeeze(0)
     current_emb = prompt_embeddings[token_idx].reshape(1, -1)
 
     # Calculate similarities with all tokens in the vocabulary
