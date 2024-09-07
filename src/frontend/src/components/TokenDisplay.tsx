@@ -8,9 +8,10 @@ interface Token {
 
 interface TokenDisplayProps {
   onTokenClick: (index: number) => void;
+  selectedLayer: number;
 }
 
-const TokenDisplay: React.FC<TokenDisplayProps> = ({ onTokenClick }) => {
+const TokenDisplay: React.FC<TokenDisplayProps> = ({ onTokenClick, selectedLayer }) => {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [clickedIndex, setClickedIndex] = useState<number | null>(null);
 
@@ -18,6 +19,7 @@ const TokenDisplay: React.FC<TokenDisplayProps> = ({ onTokenClick }) => {
     try {
       const response = await axios.post('http://localhost:8000/token_similarities', {
         token_idx: tokenIdx,
+        layer_idx: selectedLayer,
         prompt: { text: '' }
       });
       const { tokens: newTokens, similarities } = response.data;
@@ -28,8 +30,8 @@ const TokenDisplay: React.FC<TokenDisplayProps> = ({ onTokenClick }) => {
   };
 
   useEffect(() => {
-    fetchTokenSimilarities();
-  }, []);
+    fetchTokenSimilarities(clickedIndex ?? 0);
+  }, [selectedLayer, clickedIndex]);
 
   const handleTokenClick = (index: number) => {
     setClickedIndex(index);

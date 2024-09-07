@@ -13,9 +13,10 @@ interface Word {
 
 interface D3WordCloudProps {
   selectedTokenIndex: number;
+  selectedLayer: number;
 }
 
-const D3WordCloud: React.FC<D3WordCloudProps> = ({ selectedTokenIndex }) => {
+const D3WordCloud: React.FC<D3WordCloudProps> = ({ selectedTokenIndex, selectedLayer }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
@@ -26,6 +27,7 @@ const D3WordCloud: React.FC<D3WordCloudProps> = ({ selectedTokenIndex }) => {
       try {
         const response = await axios.post('http://localhost:8000/get_most_similar_global', {
           token_idx: selectedTokenIndex,
+          layer_idx: selectedLayer,
           prompt: { text: '' },
           num_tokens: 50
         });
@@ -45,7 +47,7 @@ const D3WordCloud: React.FC<D3WordCloudProps> = ({ selectedTokenIndex }) => {
     };
 
     fetchWords();
-  }, [selectedTokenIndex]);
+  }, [selectedTokenIndex, selectedLayer]); // Add selectedLayer to the dependency array
 
   useEffect(() => {
     const updateDimensions = () => {

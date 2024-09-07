@@ -3,13 +3,19 @@ import ReactMarkdown from 'react-markdown';
 import TokenDisplay from './components/TokenDisplay';
 import WordCloud from './components/WordCloud';
 import Plot2dPointsD3 from './components/Plot2dPointsD3';
+import LayerMenu from './components/SelectMenu';
 import './App.css'; // Add this import for custom styles
 
 const App: React.FC = () => {
   const [selectedTokenIndex, setSelectedTokenIndex] = useState<number>(0);
+  const [selectedLayer, setSelectedLayer] = useState<number>(0);
 
   const handleTokenClick = (index: number) => {
     setSelectedTokenIndex(index);
+  };
+
+  const handleLayerSelect = (index: number) => {
+    setSelectedLayer(index);
   };
 
   const description = `
@@ -17,6 +23,8 @@ Transformer models are mysterious things. A token mapped to an integer goes in, 
 
 This tool explores how tokens transform as they move through the layers of a transformer model. The approach is simple, try to visualize how tokens relate by leveraging that they keep to the same embedding space. Let's explore how relations between tokens changes as they are transformed. They start out as an entry in an embedding matrix, and are gradually transformed into something else. This is fascinating, and hopefully this tool can help build some intuition.
   `;
+
+  // TODO: Make plotd2points work with layer_idx
 
   return (
     <div className="app-container min-h-screen flex flex-col">
@@ -27,20 +35,24 @@ This tool explores how tokens transform as they move through the layers of a tra
         {description}
       </ReactMarkdown>
       <main className="flex-grow flex flex-col p-4 gap-4">
+        <section className="layer-menu">
+          <h2 className="text-xl mb-2">Select Layer</h2>
+          <LayerMenu onLayerSelect={handleLayerSelect} />
+        </section>
         <section className="token-display">
           <h2 className="text-xl mb-2">Token Display</h2>
-          <TokenDisplay onTokenClick={handleTokenClick} />
+          <TokenDisplay onTokenClick={handleTokenClick} selectedLayer={selectedLayer} />
         </section>
         <div className="plots-container flex-grow flex flex-col sm:flex-row gap-4">
           <section className="word-cloud flex-1">
             <h2 className="text-xl mb-2">Most similar tokens</h2>
             <div className="h-full">
-              <WordCloud selectedTokenIndex={selectedTokenIndex} />
+              <WordCloud selectedTokenIndex={selectedTokenIndex} selectedLayer={selectedLayer} />
             </div>
           </section>
           <section className="embeddings-plot flex-1">
             <h2 className="text-xl mb-2">2D Projections</h2>
-            <Plot2dPointsD3 />
+            <Plot2dPointsD3  /> 
           </section>
         </div>
       </main>
