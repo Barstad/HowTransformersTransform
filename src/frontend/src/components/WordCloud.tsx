@@ -29,7 +29,7 @@ const D3WordCloud: React.FC<D3WordCloudProps> = ({ selectedTokenIndex, selectedL
           token_idx: selectedTokenIndex,
           layer_idx: selectedLayer,
           prompt: { text: '' },
-          num_tokens: 50
+          num_tokens: 100
         });
 
         const { tokens, similarities } = response.data;

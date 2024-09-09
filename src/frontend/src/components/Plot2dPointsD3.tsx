@@ -17,7 +17,17 @@ interface SelectedPoints {
   y: number[];
 }
 
-const Plot2dPointsD3: React.FC = () => {
+interface AdditionalPoints {
+  tokens: string[];
+  x: number[];
+  y: number[];
+}
+
+interface Plot2dPointsD3Props {
+  layer_idx: number;
+}
+
+const Plot2dPointsD3: React.FC<Plot2dPointsD3Props> = ({ layer_idx }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
@@ -30,6 +40,7 @@ const Plot2dPointsD3: React.FC = () => {
   const [brushExtent, setBrushExtent] = useState<[[number, number], [number, number]] | null>(null);
   const currentZoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [additionalPoints, setAdditionalPoints] = useState<AdditionalPoints | null>(null);
 
   const aspectRatio = 3 / 2;
   const margin = { top: 20, right: 20, bottom: 30, left: 40 };
@@ -52,8 +63,7 @@ const Plot2dPointsD3: React.FC = () => {
     const fetchCloudData = async () => {
       try {
         const response = await axios.post('http://localhost:8000/get_2d_cloud', {
-          page: 1,
-          page_size: 500
+          sample_rate: 0.1
         });
         setCloudData(response.data);
       } catch (error) {
@@ -64,18 +74,34 @@ const Plot2dPointsD3: React.FC = () => {
     fetchCloudData();
   }, []);
 
+  const fetchAdditionalPoints = async () => {
+    try {
+      const response = await axios.post('http://localhost:8000/get_additional_points', {
+        prompt: { text: "" },
+        layer_idx: layer_idx
+      });
+      setAdditionalPoints(response.data);
+    } catch (error) {
+      console.error('Error fetching additional points:', error);
+    }
+  };
+
   useEffect(() => {
-    if (!cloudData || !svgRef.current || dimensions.width === 0 || dimensions.height === 0) return;
+    fetchAdditionalPoints();
+  }, [layer_idx]); // Fetch additional points when layer_idx changes
+
+  useEffect(() => {
+    if (!cloudData || !additionalPoints || !svgRef.current || dimensions.width === 0 || dimensions.height === 0) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
     const x = d3.scaleLinear()
-      .domain(d3.extent(cloudData.x) as [number, number])
+      .domain(d3.extent([...cloudData.x, ...additionalPoints.x]) as [number, number])
       .range([margin.left, dimensions.width - margin.right]);
 
     const y = d3.scaleLinear()
-      .domain(d3.extent(cloudData.y) as [number, number])
+      .domain(d3.extent([...cloudData.y, ...additionalPoints.y]) as [number, number])
       .range([dimensions.height - margin.bottom, margin.top]);
 
     const g = svg.append('g');
@@ -91,23 +117,29 @@ const Plot2dPointsD3: React.FC = () => {
       .style('border-radius', '5px')
       .style('padding', '10px');
 
-    const points = g.selectAll("circle")
-      .data(cloudData.tokens)
-      .join("circle")
-      .attr("cx", (_, i) => x(cloudData.x[i]))
-      .attr("cy", (_, i) => y(cloudData.y[i]))
-      .attr("r", 3)
-      .attr("fill", "black")
-      .attr("opacity", 0.4)
-      .on('mouseover', (event, d) => {
-        tooltip.style('visibility', 'visible')
-          .text(d)
-          .style('top', (event.pageY - 10) + 'px')
-          .style('left', (event.pageX + 10) + 'px');
-      })
-      .on('mouseout', () => {
-        tooltip.style('visibility', 'hidden');
-      });
+    const addPointsWithProperties = (data: CloudPoint | AdditionalPoints, color: string) => {
+      return g.selectAll(color === "red" ? ".additional-point" : "circle")
+        .data(data.tokens)
+        .join("circle")
+        .attr("class", color === "red" ? "additional-point" : null)
+        .attr("cx", (_, i) => x(data.x[i]))
+        .attr("cy", (_, i) => y(data.y[i]))
+        .attr("r", 3)
+        .attr("fill", color)
+        .attr("opacity", color === "red" ? 0.6 : 0.4)
+        .on('mouseover', (event: MouseEvent, d: string) => {
+          tooltip.style('visibility', 'visible')
+            .text(d)
+            .style('top', (event.pageY - 10) + 'px')
+            .style('left', (event.pageX + 10) + 'px');
+        })
+        .on('mouseout', () => {
+          tooltip.style('visibility', 'hidden');
+        });
+    };
+
+    const points = addPointsWithProperties(cloudData, "black");
+    const additionalPointsSelection = addPointsWithProperties(additionalPoints, "red");
 
     // Add axes
     const xAxis = g.append('g')
@@ -128,6 +160,7 @@ const Plot2dPointsD3: React.FC = () => {
         xAxis.call(d3.axisBottom(transform.rescaleX(x)));
         yAxis.call(d3.axisLeft(transform.rescaleY(y)));
         points.attr("r", 3 / transform.k); // Adjust the radius of the points based on the zoom levelS
+        additionalPointsSelection.attr("r", 3 / transform.k); // Adjust additional points size
       });
 
     svg.call(zoom);
@@ -169,6 +202,7 @@ const Plot2dPointsD3: React.FC = () => {
       xAxis.call(d3.axisBottom(currentZoomRef.current.rescaleX(x)));
       yAxis.call(d3.axisLeft(currentZoomRef.current.rescaleY(y)));
       points.attr("r", 3 / currentZoomRef.current.k);
+      additionalPointsSelection.attr("r", 3 / currentZoomRef.current.k);
     };
 
     updateToolBehavior(activeTool);
@@ -181,7 +215,7 @@ const Plot2dPointsD3: React.FC = () => {
       }
     };
 
-  }, [cloudData, activeTool, dimensions]);
+  }, [cloudData, additionalPoints, activeTool, dimensions]);
 
   useEffect(() => {
     if (!brushExtent || !svgRef.current || !cloudData || !zoomRef.current) return;

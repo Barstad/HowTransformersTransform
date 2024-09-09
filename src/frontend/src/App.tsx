@@ -35,25 +35,25 @@ This tool explores how tokens transform as they move through the layers of a tra
         {description}
       </ReactMarkdown>
       <main className="flex-grow flex flex-col p-4 gap-4">
-        <section className="layer-menu">
+        <div className="layer-menu">
           <h2 className="text-xl mb-2">Select Layer</h2>
           <LayerMenu onLayerSelect={handleLayerSelect} />
-        </section>
-        <section className="token-display">
-          <h2 className="text-xl mb-2">Token Display</h2>
+        </div>
+        <div className="token-display">
+          <h2 className="token-display-header">A tokenized story. Try to click a word.</h2>
           <TokenDisplay onTokenClick={handleTokenClick} selectedLayer={selectedLayer} />
-        </section>
+        </div>
         <div className="plots-container flex-grow flex flex-col sm:flex-row gap-4">
-          <section className="word-cloud flex-1">
-            <h2 className="text-xl mb-2">Most similar tokens</h2>
+          <div className="word-cloud flex-1">
+            <h2 className="word-cloud-header">Most similar tokens</h2>
             <div className="h-full">
               <WordCloud selectedTokenIndex={selectedTokenIndex} selectedLayer={selectedLayer} />
             </div>
-          </section>
-          <section className="embeddings-plot flex-1">
-            <h2 className="text-xl mb-2">2D Projections</h2>
-            <Plot2dPointsD3  /> 
-          </section>
+          </div>
+          <div className="embeddings-plot flex-1">
+            <h2 className="plot-2d-header">2D Projections</h2>
+            <Plot2dPointsD3 layer_idx={selectedLayer} />
+          </div>
         </div>
       </main>
     </div>

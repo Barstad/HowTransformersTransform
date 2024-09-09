@@ -30,12 +30,18 @@ const TokenDisplay: React.FC<TokenDisplayProps> = ({ onTokenClick, selectedLayer
   };
 
   useEffect(() => {
-    fetchTokenSimilarities(clickedIndex ?? 0);
-  }, [selectedLayer, clickedIndex]);
+    fetchTokenSimilarities();
+  }, [selectedLayer]);
 
   const handleTokenClick = (index: number) => {
-    setClickedIndex(index);
-    onTokenClick(index);
+    if (index === clickedIndex) {
+      // Deselect the token if it's already selected
+      setClickedIndex(null);
+      onTokenClick(-1); // Use -1 to indicate no token is selected
+    } else {
+      setClickedIndex(index);
+      onTokenClick(index);
+    }
     fetchTokenSimilarities(index);
   };
 
@@ -46,21 +52,28 @@ const TokenDisplay: React.FC<TokenDisplayProps> = ({ onTokenClick, selectedLayer
   };
 
   return (
-    <div className="token-display">
-      {tokens.map((token, index) => (
-        <span
-          key={index}
-          className={`token ${
-            clickedIndex === index ? 'selected' : ''
-          }`}
-          style={{
-            backgroundColor: getBackgroundColor(token.similarity),
-          }}
-          onClick={() => handleTokenClick(index)}
-        >
-          {token.text}
-        </span>
-      ))}
+    <div>
+      <div className="token-display-container">
+        {tokens.map((token, index) => (
+          <span
+            key={index}
+            className={`token ${
+              clickedIndex === index ? 'selected' : ''
+            }`}
+            style={{
+              backgroundColor: clickedIndex !== null ? getBackgroundColor(token.similarity) : 'transparent',
+            }}
+            onClick={() => handleTokenClick(index)}
+          >
+            {token.text}
+          </span>
+        ))}
+      </div>
+      <div className="active-token-display">
+        <p className="active-token-display-text">
+          {clickedIndex !== null ? tokens[clickedIndex]?.text : 'Click a token to see how the transformer sees it.'}
+        </p>
+      </div>
     </div>
   );
 };
