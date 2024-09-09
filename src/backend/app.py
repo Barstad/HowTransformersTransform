@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Optional
 import numpy as np
 from fastapi import FastAPI
@@ -8,6 +9,9 @@ from pydantic import BaseModel, Field
 import sys
 import os
 from itertools import compress
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Add the current directory to the system path
@@ -64,12 +68,14 @@ EMBEDDINGS_TABLE = None
 UMAP_MODEL = None
 UMAP_2D = None
 TOKEN_IDS = None
+ADDITIONAL_POINTS_CACHE = None
 
 @app.on_event("startup")
 async def startup_event():
     print("Loading data")
-    global PROMPT, TOKENIZER, HIDDEN_STATES, EMBEDDINGS_TABLE, UMAP_MODEL, UMAP_2D, TOKEN_IDS
+    global PROMPT, TOKENIZER, HIDDEN_STATES, EMBEDDINGS_TABLE, UMAP_MODEL, UMAP_2D, TOKEN_IDS, ADDITIONAL_POINTS_CACHE
     PROMPT, TOKENIZER, HIDDEN_STATES, EMBEDDINGS_TABLE, UMAP_MODEL, UMAP_2D, TOKEN_IDS = load_data()
+    ADDITIONAL_POINTS_CACHE = {}
     print("Data loaded")
 
 
@@ -102,16 +108,17 @@ class TokenSimilaritiesResponse(BaseModel):
     similarities: list[float]
 
 class CloudRequest(BaseModel):
-    page: int = Field(default=1, ge=1, description="Page number")
-    page_size: int = Field(default=1000, ge=1, le=50000, description="Number of items per page")
+    sample_rate: float = Field(lt=1, gt = 0, default = 0.1)
+
+class Get2DPointsRequest(BaseModel):
+    prompt: Prompt
+    layer_idx: Optional[int] = Field(default=0)
 
 class CloudResponse(BaseModel):
     tokens: list[str]
     x: list[float]
     y: list[float]
-    total_count: int
-    page: int
-    page_size: int
+    total_count: Optional[int] = Field(default=None)
 
 class RootResponse(BaseModel):
     message: str
@@ -123,24 +130,25 @@ def tokenize_prompt(token_ids: list[int]) -> dict[str, list]:
     return {"tokens": tokens}
 
 
-def get_2d_cloud_points(page: int = 1, page_size: int = 1000):
+def get_2d_cloud_points(sample_rate: float):
     tokens = TOKENIZER.convert_ids_to_tokens(np.arange(len(UMAP_2D)))
     mask = [token is not None for token in tokens]
+
+    # Set sample rate of mask to True
+    sampling_mask = np.random.choice([True, False], size=len(tokens), p=[sample_rate, 1-sample_rate])
+    # Combine the masks
+    mask = np.logical_and(mask, sampling_mask)
+
     filtered_tokens = list(compress(tokens, mask))
     filtered_x = UMAP_2D[:, 0][mask].tolist()
     filtered_y = UMAP_2D[:, 1][mask].tolist()
 
     total_count = len(filtered_tokens)
-    start_idx = (page - 1) * page_size
-    end_idx = start_idx + page_size
-
     return dict(
-        tokens=filtered_tokens[start_idx:end_idx],
-        x=filtered_x[start_idx:end_idx],
-        y=filtered_y[start_idx:end_idx],
-        total_count=total_count,
-        page=page,
-        page_size=page_size
+        tokens=filtered_tokens,
+        x=filtered_x,
+        y=filtered_y,
+        total_count=total_count
     )
 
 
@@ -159,7 +167,10 @@ def get_token_similarities(request: TokenSimilaritiesRequest) -> TokenSimilariti
     token_idx = request.token_idx
     layer_idx = request.layer_idx
 
-    prompt = request.prompt.text if request.prompt.text else PROMPT
+    if request.prompt.text:
+        prompt = request.prompt.text
+    else:
+        prompt = PROMPT
 
     token_ids = get_prompt_token_ids(prompt, TOKENIZER)
     if layer_idx == 0:
@@ -168,6 +179,7 @@ def get_token_similarities(request: TokenSimilaritiesRequest) -> TokenSimilariti
         prompt_embeddings = HIDDEN_STATES.hidden_states[layer_idx].squeeze(0)
 
     current_emb = prompt_embeddings[token_idx].reshape(1, -1)
+    print(f"Comparing token {token_idx} in layer {layer_idx} with {len(prompt_embeddings)} tokens")
     similarities = cosine_similarity_except_self(current_emb, prompt_embeddings).flatten().tolist()
     tokens = tokenize_prompt(TOKENIZER.encode(prompt, add_special_tokens=False))["tokens"]
 
@@ -182,6 +194,7 @@ def get_most_similar_global(request: MostSimilarGlobalRequest) -> MostSimilarGlo
     token_idx = request.token_idx
     layer_idx = request.layer_idx
     num_tokens = request.num_tokens
+
     if request.prompt.text:
         prompt = request.prompt.text
     else:
@@ -212,8 +225,41 @@ def get_most_similar_global(request: MostSimilarGlobalRequest) -> MostSimilarGlo
 
 @app.post("/get_2d_cloud", response_model=CloudResponse)
 def get_2d_cloud(request: CloudRequest) -> CloudResponse:
-    data = get_2d_cloud_points(request.page, request.page_size)
+    sample_rate = request.sample_rate
+    data = get_2d_cloud_points(sample_rate)
     return CloudResponse(**data)
+
+
+@app.post("/get_additional_points", response_model=CloudResponse)
+def get_additional_points(request: Get2DPointsRequest) -> CloudResponse:
+    layer_idx = request.layer_idx
+
+    if request.prompt.text:
+        prompt = request.prompt.text
+    else:
+        prompt = PROMPT
+
+    if ADDITIONAL_POINTS_CACHE.get((prompt, layer_idx), None):
+        return CloudResponse(**ADDITIONAL_POINTS_CACHE.get((prompt, layer_idx)))
+
+    token_ids = get_prompt_token_ids(prompt, TOKENIZER)
+
+    if layer_idx == 0:
+        prompt_embeddings = get_token_embeddings(token_ids, EMBEDDINGS_TABLE)
+    else:
+        prompt_embeddings = HIDDEN_STATES.hidden_states[layer_idx].squeeze(0)
+    
+    points = UMAP_MODEL.transform(prompt_embeddings)
+    tokens = tokenize_prompt(TOKENIZER.encode(prompt, add_special_tokens=False))["tokens"]
+
+    ADDITIONAL_POINTS_CACHE[(prompt, layer_idx)] = dict(
+        tokens=tokens,
+        x=points[:, 0],
+        y=points[:, 1],
+        total_count=len(tokens)
+    )
+
+    return CloudResponse(**ADDITIONAL_POINTS_CACHE[(prompt, layer_idx)])
 
 
 @app.get("/", response_model=RootResponse)
