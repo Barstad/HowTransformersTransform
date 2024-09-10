@@ -302,8 +302,6 @@ const Plot2dPointsD3: React.FC<Plot2dPointsD3Props> = ({ layer_idx }) => {
 
   }, [brushExtent, cloudData, zoomRef, dimensions]);
 
-  console.log(selectedPoints)
-
   const handleReset = () => {
     if (svgRef.current && zoomRef.current) {
       const svg = d3.select(svgRef.current);

@@ -30,8 +30,8 @@ const TokenDisplay: React.FC<TokenDisplayProps> = ({ onTokenClick, selectedLayer
   };
 
   useEffect(() => {
-    fetchTokenSimilarities();
-  }, [selectedLayer]);
+    fetchTokenSimilarities(clickedIndex !== null ? clickedIndex : 0);
+  }, [selectedLayer, clickedIndex]);
 
   const handleTokenClick = (index: number) => {
     if (index === clickedIndex) {
