@@ -4,7 +4,6 @@ annotated-types==0.7.0
     # via pydantic
 anyio==4.4.0
     # via
-    #   httpx
     #   starlette
     #   watchfiles
 asttokens==2.4.1
@@ -18,16 +17,12 @@ bokeh==3.5.2
     #   panel
     #   umap-learn
 certifi==2024.8.30
-    # via
-    #   httpcore
-    #   httpx
-    #   requests
+    # via requests
 charset-normalizer==3.3.2
     # via requests
 click==8.1.7
     # via
     #   dask
-    #   typer
     #   uvicorn
 cloudpickle==3.0.0
     # via dask
@@ -60,16 +55,12 @@ debugpy==1.8.5
     # via ipykernel
 decorator==5.1.1
     # via ipython
-dnspython==2.6.1
-    # via email-validator
-email-validator==2.2.0
-    # via fastapi
+einops==0.8.0
+    # via -r requirements.in
 executing==2.1.0
     # via stack-data
 fastapi==0.112.2
     # via -r requirements.in
-fastapi-cli==0.0.5
-    # via fastapi
 fastjsonschema==2.20.0
     # via nbformat
 filelock==3.15.4
@@ -85,17 +76,11 @@ fsspec==2024.6.1
     #   huggingface-hub
     #   torch
 h11==0.14.0
-    # via
-    #   httpcore
-    #   uvicorn
+    # via uvicorn
 holoviews==1.14.9
     # via umap-learn
-httpcore==1.0.5
-    # via httpx
 httptools==0.6.1
     # via uvicorn
-httpx==0.27.2
-    # via fastapi
 huggingface-hub==0.24.6
     # via
     #   tokenizers
@@ -103,8 +88,6 @@ huggingface-hub==0.24.6
 idna==3.8
     # via
     #   anyio
-    #   email-validator
-    #   httpx
     #   requests
 imageio==2.35.1
     # via scikit-image
@@ -121,7 +104,6 @@ jedi==0.19.1
 jinja2==3.1.4
     # via
     #   bokeh
-    #   fastapi
     #   torch
 joblib==1.4.2
     # via
@@ -152,8 +134,6 @@ locket==1.0.0
     # via partd
 markdown==3.7
     # via panel
-markdown-it-py==3.0.0
-    # via rich
 markupsafe==2.1.5
     # via jinja2
 matplotlib==3.9.2
@@ -164,8 +144,6 @@ matplotlib-inline==0.1.7
     # via
     #   ipykernel
     #   ipython
-mdurl==0.1.2
-    # via markdown-it-py
 mpmath==1.3.0
     # via sympy
 multipledispatch==1.0.0
@@ -262,9 +240,7 @@ pydantic==2.8.2
 pydantic-core==2.20.1
     # via pydantic
 pygments==2.18.0
-    # via
-    #   ipython
-    #   rich
+    # via ipython
 pynndescent==0.5.13
     # via umap-learn
 pyparsing==3.1.4
@@ -276,8 +252,6 @@ python-dateutil==2.9.0.post0
     #   pandas
 python-dotenv==1.0.1
     # via uvicorn
-python-multipart==0.0.9
-    # via fastapi
 pytz==2024.1
     # via pandas
 pyviz-comms==3.0.3
@@ -302,15 +276,16 @@ referencing==0.35.1
     #   jsonschema
     #   jsonschema-specifications
 regex==2024.7.24
-    # via transformers
+    # via
+    #   tiktoken
+    #   transformers
 requests==2.32.3
     # via
     #   datashader
     #   huggingface-hub
     #   panel
+    #   tiktoken
     #   transformers
-rich==13.8.0
-    # via typer
 rpds-py==0.20.0
     # via
     #   jsonschema
@@ -335,16 +310,12 @@ seaborn==0.13.2
     # via umap-learn
 setuptools==74.0.0
     # via torch
-shellingham==1.5.4
-    # via typer
 six==1.16.0
     # via
     #   asttokens
     #   python-dateutil
 sniffio==1.3.1
-    # via
-    #   anyio
-    #   httpx
+    # via anyio
 stack-data==0.6.3
     # via ipython
 starlette==0.38.4
@@ -355,6 +326,8 @@ threadpoolctl==3.5.0
     # via scikit-learn
 tifffile==2024.8.30
     # via scikit-image
+tiktoken==0.7.0
+    # via -r requirements.in
 tokenizers==0.19.1
     # via transformers
 toolz==0.12.1
@@ -388,8 +361,6 @@ traitlets==5.14.3
     #   nbformat
 transformers==4.44.2
     # via -r requirements.in
-typer==0.12.5
-    # via fastapi-cli
 typing-extensions==4.12.2
     # via
     #   fastapi
@@ -397,7 +368,6 @@ typing-extensions==4.12.2
     #   pydantic
     #   pydantic-core
     #   torch
-    #   typer
 tzdata==2024.1
     # via pandas
 umap-learn==0.5.6
@@ -405,10 +375,7 @@ umap-learn==0.5.6
 urllib3==2.2.2
     # via requests
 uvicorn==0.30.6
-    # via
-    #   -r requirements.in
-    #   fastapi
-    #   fastapi-cli
+    # via -r requirements.in
 watchfiles==0.24.0
     # via uvicorn
 wcwidth==0.2.13

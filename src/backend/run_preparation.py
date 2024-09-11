@@ -1,4 +1,5 @@
-from phi35.prep import preprocess_and_save
+from model.prep import prep_models
+from model.utils import SMALL_MODEL, LARGER_MODEL
 
 if __name__ == "__main__":
-    preprocess_and_save()
+    prep_models([SMALL_MODEL, LARGER_MODEL])
