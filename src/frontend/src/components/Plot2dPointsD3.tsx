@@ -25,9 +25,10 @@ interface AdditionalPoints {
 
 interface Plot2dPointsD3Props {
   layer_idx: number;
+  model: 'small' | 'large';
 }
 
-const Plot2dPointsD3: React.FC<Plot2dPointsD3Props> = ({ layer_idx }) => {
+const Plot2dPointsD3: React.FC<Plot2dPointsD3Props> = ({ layer_idx, model }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
@@ -63,7 +64,8 @@ const Plot2dPointsD3: React.FC<Plot2dPointsD3Props> = ({ layer_idx }) => {
     const fetchCloudData = async () => {
       try {
         const response = await axios.post('http://localhost:8000/get_2d_cloud', {
-          sample_rate: 0.1
+          sample_rate: 0.1,
+          model: model
         });
         setCloudData(response.data);
       } catch (error) {
@@ -72,13 +74,14 @@ const Plot2dPointsD3: React.FC<Plot2dPointsD3Props> = ({ layer_idx }) => {
     };
 
     fetchCloudData();
-  }, []);
+  }, [model]);
 
   const fetchAdditionalPoints = async () => {
     try {
       const response = await axios.post('http://localhost:8000/get_additional_points', {
         prompt: { text: "" },
-        layer_idx: layer_idx
+        layer_idx: layer_idx,
+        model: model
       });
       setAdditionalPoints(response.data);
     } catch (error) {
@@ -88,7 +91,7 @@ const Plot2dPointsD3: React.FC<Plot2dPointsD3Props> = ({ layer_idx }) => {
 
   useEffect(() => {
     fetchAdditionalPoints();
-  }, [layer_idx]); // Fetch additional points when layer_idx changes
+  }, [layer_idx, model]);
 
   useEffect(() => {
     if (!cloudData || !additionalPoints || !svgRef.current || dimensions.width === 0 || dimensions.height === 0) return;

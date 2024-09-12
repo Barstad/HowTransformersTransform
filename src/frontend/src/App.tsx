@@ -9,6 +9,7 @@ import './App.css'; // Add this import for custom styles
 const App: React.FC = () => {
   const [selectedTokenIndex, setSelectedTokenIndex] = useState<number>(0);
   const [selectedLayer, setSelectedLayer] = useState<number>(0);
+  const [selectedModel, setSelectedModel] = useState<"small" | "large">("small");
 
   const handleTokenClick = (index: number) => {
     setSelectedTokenIndex(index);
@@ -16,6 +17,10 @@ const App: React.FC = () => {
 
   const handleLayerSelect = (index: number) => {
     setSelectedLayer(index);
+  };
+
+  const handleModelSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedModel(event.target.value as "small" | "large");
   };
 
   const description = `
@@ -35,24 +40,45 @@ This tool explores how tokens transform as they move through the layers of a tra
         {description}
       </ReactMarkdown>
       <main className="flex-grow flex flex-col p-4 gap-4">
-        <div className="layer-menu">
-          <h2 className="text-xl mb-2">Select Layer</h2>
-          <LayerMenu onLayerSelect={handleLayerSelect} />
+        <div className="flex justify-between items-center">
+          <div className="layer-menu">
+            <h2 className="text-xl mb-2">Select Layer</h2>
+            <LayerMenu onLayerSelect={handleLayerSelect} model={selectedModel} />
+          </div>
+          <div className="model-select">
+            <h2 className="text-xl mb-2">Select Model</h2>
+            <select
+              value={selectedModel}
+              onChange={handleModelSelect}
+              className="p-2 border rounded"
+            >
+              <option value="small">Small</option>
+              <option value="large">Large</option>
+            </select>
+          </div>
         </div>
         <div className="token-display">
           <h2 className="token-display-header">A tokenized story. Try to click a word.</h2>
-          <TokenDisplay onTokenClick={handleTokenClick} selectedLayer={selectedLayer} />
+          <TokenDisplay
+            onTokenClick={handleTokenClick}
+            selectedLayer={selectedLayer}
+            model={selectedModel}
+          />
         </div>
         <div className="plots-container flex-grow flex flex-col sm:flex-row gap-4">
           <div className="word-cloud flex-1">
             <h2 className="word-cloud-header">Most similar tokens</h2>
             <div className="h-full">
-              <WordCloud selectedTokenIndex={selectedTokenIndex} selectedLayer={selectedLayer} />
+              <WordCloud
+                selectedTokenIndex={selectedTokenIndex}
+                selectedLayer={selectedLayer}
+                model={selectedModel}
+              />
             </div>
           </div>
           <div className="embeddings-plot flex-1">
             <h2 className="plot-2d-header">2D Projections</h2>
-            <Plot2dPointsD3 layer_idx={selectedLayer} />
+            {/* <Plot2dPointsD3 layer_idx={selectedLayer} model={selectedModel} /> */}
           </div>
         </div>
       </main>

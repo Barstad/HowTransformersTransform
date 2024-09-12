@@ -9,10 +9,12 @@ import {
 
 interface LayerMenuProps {
   onLayerSelect: (layer: number) => void;
+  model: 'small' | 'large';
 }
 
-const LayerMenu: React.FC<LayerMenuProps> = ({ onLayerSelect }) => {
-  const layers = Array.from({ length: 33 }, (_, i) => i);
+const LayerMenu: React.FC<LayerMenuProps> = ({ onLayerSelect, model }) => {
+  const layerCount = model === 'small' ? 33 : 29;
+  const layers = Array.from({ length: layerCount }, (_, i) => i);
 
   return (
     <div className="layer-menu">

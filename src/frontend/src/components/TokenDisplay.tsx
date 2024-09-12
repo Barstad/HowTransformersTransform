@@ -9,9 +9,10 @@ interface Token {
 interface TokenDisplayProps {
   onTokenClick: (index: number) => void;
   selectedLayer: number;
+  model: 'small' | 'large';
 }
 
-const TokenDisplay: React.FC<TokenDisplayProps> = ({ onTokenClick, selectedLayer }) => {
+const TokenDisplay: React.FC<TokenDisplayProps> = ({ onTokenClick, selectedLayer, model }) => {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [clickedIndex, setClickedIndex] = useState<number | null>(null);
 
@@ -20,7 +21,8 @@ const TokenDisplay: React.FC<TokenDisplayProps> = ({ onTokenClick, selectedLayer
       const response = await axios.post('http://localhost:8000/token_similarities', {
         token_idx: tokenIdx,
         layer_idx: selectedLayer,
-        prompt: { text: '' }
+        prompt: { text: '' },
+        model: model
       });
       const { tokens: newTokens, similarities } = response.data;
       setTokens(newTokens.map((text: string, i: number) => ({ text, similarity: similarities[i] })));
