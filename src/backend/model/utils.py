@@ -1,6 +1,6 @@
 import pickle
 import os
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 import umap
 import os
 import numpy as np
@@ -27,8 +27,8 @@ def get_hidden_states_path(model_name):
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
-def get_token_embeddings_path(model_name):
-    path = Path(f"data/{model_name.split('/')[-1]}/token_embeddings.npy")
+def get_token_embeddings_path(model_name, variant: str):
+    path = Path(f"data/{model_name.split('/')[-1]}/{variant}_token_embeddings.npy")
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -102,19 +102,24 @@ def get_hidden_states(model_name:str):
     return out
 
 
-def create_token_embeddings_table(model_name:str, model:Callable) -> np.ndarray:
-    path = get_token_embeddings_path(model_name)
-    embeddings = model.model.embed_tokens.weight.detach().numpy()
+def create_token_embeddings_table(model_name:str, model:Callable, variant:Literal["input", "output"]) -> np.ndarray:
+    path = get_token_embeddings_path(model_name, variant)
+    if variant == "input":
+        embeddings = model.model.embed_tokens.weight.detach().numpy()
+    elif variant == "output":
+        embeddings = model.lm_head.weight.detach().numpy()
+        embeddings = embeddings.T
+    else:
+        raise ValueError(f"Invalid variant {variant}")
     np.save(path, embeddings)
-    print("Token embeddings table calculated and saved.")
+    print(f"{variant} token embeddings table calculated and saved.")
     return embeddings
 
-
-def get_token_embeddings_table(model_name=str):
-    print("Retrieving token embeddings table...")
-    path = get_token_embeddings_path(model_name)
+def get_token_embeddings_table(model_name:str, variant:Literal["input", "output"]):
+    print(f"Retrieving {variant} token embeddings table...")
+    path = get_token_embeddings_path(model_name, variant)
     if not path.exists():
-        raise ValueError(f"Token embeddings table for model {model_name} not found at {path}")
+        raise ValueError(f"{variant} token embeddings table for model {model_name} not found at {path}")
     embeddings = np.load(path)
     return embeddings
 
@@ -126,9 +131,10 @@ def get_token_embeddings(token_ids:Any, embeddings_table:np.ndarray):
     return embeddings
 
 
-def create_umap_model(model_name:str, embeddings_table:np.ndarray):
+def create_umap_model(model_name:str, input_embeddings_table:np.ndarray, output_embeddings_table:np.ndarray):
     path = get_umap_path(model_name)
-    umap_model = umap.UMAP(n_neighbors=20, metric="cosine").fit(embeddings_table)
+    embeddings = np.concatenate([input_embeddings_table, output_embeddings_table])
+    umap_model = umap.UMAP(n_neighbors=20, metric="cosine").fit(embeddings)
     with open(path, "wb") as f:
         pickle.dump(umap_model, f)
     return umap_model

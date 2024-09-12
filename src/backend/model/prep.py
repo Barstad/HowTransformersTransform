@@ -10,14 +10,15 @@ def preprocess_and_save(model_name:str):
 
     print(f"Saving data for {model_name}...")
     create_hidden_states(model, model_name, tokenizer, PROMPT)
-    embeddings = create_token_embeddings_table(model_name, model)
-    umap_model = create_umap_model(model_name, embeddings)
-    get_2d_representation(model_name, umap_model, embeddings, save=True)
+    create_token_embeddings_table(model_name, model, "input")
+    create_token_embeddings_table(model_name, model, "output")
+    # umap_model = create_umap_model(model_name, input_embeddings, output_embeddings)
+    # get_2d_representation(model_name, umap_model, embeddings, save=True)
     print(f"Saved data for {model_name} to 'data' directory.")
     del model
     del tokenizer
-    del embeddings
-    
+
+
 def prep_models(models:list[str]):
     for model in models:
         preprocess_and_save(model)
