@@ -88,7 +88,7 @@ app.add_middleware(
 async def startup_event():
     print("Loading data")
     global MODEL_ATTRIBUTES
-    for name, model in [("small", SMALL_MODEL), ("large", LARGER_MODEL)]:
+    for name, model in MODEL_NAME_MAPPING.items():
         MODEL_ATTRIBUTES[name] = load_data(model)
     print("Data loaded")
 
@@ -173,7 +173,7 @@ def get_token_similarities(request: TokenSimilaritiesRequest) -> TokenSimilariti
     tokenizer = MODEL_ATTRIBUTES[model].get("tokenizer")
     token_ids = get_prompt_token_ids(prompt, tokenizer)
     if layer_idx == 0:
-        embeddings_table = MODEL_ATTRIBUTES[model].get("embeddings_table")
+        embeddings_table = MODEL_ATTRIBUTES[model].get("input_embeddings_table")
         prompt_embeddings = get_token_embeddings(token_ids, embeddings_table)
     else:
         hidden_states = MODEL_ATTRIBUTES[model].get("hidden_states")

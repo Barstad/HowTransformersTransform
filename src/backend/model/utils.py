@@ -9,11 +9,7 @@ from pathlib import Path
 
 
 
-PROMPT = """An android named Apple was lost in the woods. Luckily, he had a phone with Google Maps. As he pulled out the device, its screen flickered to life, casting a faint blue glow on his metallic face. Apple's optical sensors scanned the map, processing the terrain data.
-"Calculating optimal route," he muttered, his voice a melodic hum of circuits and synthesized speech.
-Suddenly, a drop of water splashed onto the screen. Then another. Apple looked up, raindrops now pattering against his waterproof casing. The weather was interfering with his GPS signal.
-As the downpour intensified, Apple realized he faced a new challenge. His circuitry was protected, but the phone wasn't waterproof. He needed shelter, and fast."""
-
+PROMPT = Path("prompt.txt").read_text()
 SMALL_MODEL = "microsoft/Phi-3.5-mini-instruct"
 LARGER_MODEL = "Qwen/Qwen2-7B"
 
@@ -70,9 +66,7 @@ def get_tokenizer(model:str):
 
 def get_prompt_token_ids(prompt:str, tokenizer:Any):
     assert prompt == PROMPT, "Only supporting one prompt"
-    print(f"Tokenizing prompt: '{prompt[:30]}...'")
     token_ids = tokenizer.encode(prompt, return_tensors="pt", add_special_tokens=False)
-    print(f"Prompt tokenized. Number of tokens: {token_ids.shape[1]}")
     return token_ids
 
 
@@ -108,7 +102,6 @@ def create_token_embeddings_table(model_name:str, model:Callable, variant:Litera
         embeddings = model.model.embed_tokens.weight.detach().numpy()
     elif variant == "output":
         embeddings = model.lm_head.weight.detach().numpy()
-        embeddings = embeddings.T
     else:
         raise ValueError(f"Invalid variant {variant}")
     np.save(path, embeddings)
@@ -116,7 +109,6 @@ def create_token_embeddings_table(model_name:str, model:Callable, variant:Litera
     return embeddings
 
 def get_token_embeddings_table(model_name:str, variant:Literal["input", "output"]):
-    print(f"Retrieving {variant} token embeddings table...")
     path = get_token_embeddings_path(model_name, variant)
     if not path.exists():
         raise ValueError(f"{variant} token embeddings table for model {model_name} not found at {path}")
@@ -125,9 +117,7 @@ def get_token_embeddings_table(model_name:str, variant:Literal["input", "output"
 
 
 def get_token_embeddings(token_ids:Any, embeddings_table:np.ndarray):
-    print("Getting original embeddings for tokens...")
     embeddings = embeddings_table[token_ids.flatten()]
-    print(f"Original embeddings shape: {embeddings.shape}")
     return embeddings
 
 
@@ -144,14 +134,12 @@ def get_umap_model(model_name:str):
     path = get_umap_path(model_name)
     if not path.exists():
         raise ValueError(f"UMAP model for model {model_name} not found at {path}")
-    print("Loading cached UMAP model")
     with open(path, "rb") as f:
         umap_model = pickle.load(f)
     return umap_model
 
 
 def get_2d_representation(model_name:str, umap_model:Callable, embeddings:np.ndarray, save:bool=False, load:bool=False):
-    print("Transforming embeddings to 2D representation...")
     assert not (save and load), "Cannot save and load at the same time"
     path = get_2d_representation_path(model_name)
     if load:
@@ -164,26 +152,24 @@ def get_2d_representation(model_name:str, umap_model:Callable, embeddings:np.nda
 
 
 def cosine_similarity(a, b):
-    print("Calculating cosine similarity...")
     # Ensure a and b are 2D arrays
     a = np.atleast_2d(a)
     b = np.atleast_2d(b)
     
-    # Compute norms
-    norm_a = np.linalg.norm(a, axis=1, keepdims=True)
-    norm_b = np.linalg.norm(b, axis=1, keepdims=True)
+    # # Compute norms
+    # norm_a = np.linalg.norm(a, axis=1, keepdims=True)
+    # norm_b = np.linalg.norm(b, axis=1, keepdims=True)
     
-    # Handle zero norms
-    epsilon = 1e-8  # Small value to avoid division by zero
-    norm_a = np.maximum(norm_a, epsilon)
-    norm_b = np.maximum(norm_b, epsilon)
+    # # Handle zero norms
+    # epsilon = 1e-8  # Small value to avoid division by zero
+    # norm_a = np.maximum(norm_a, epsilon)
+    # norm_b = np.maximum(norm_b, epsilon)
     
     # Compute similarity
-    similarity = np.dot(a, b.T) / (norm_a * norm_b.T)
-    
-    print(f"Input shapes: a {a.shape}, b {b.shape}")
-    print(f"Cosine similarity shape: {similarity.shape}")
-    return similarity
+    # similarity = np.dot(a, b.T) / (norm_a * norm_b.T)
+    similarity = np.dot(a, b.T)
+
+    return similarity.astype(np.float32)
 
 def get_top_similar_tokens(
         token_embedding,
@@ -192,7 +178,6 @@ def get_top_similar_tokens(
         decode=False,
         return_similarity=False,
         tokenizer=None):
-    print(f"Getting top {n} similar tokens...")
     cosine_sim = cosine_similarity(token_embedding, all_token_embeddings).flatten()
     top_indices = np.argsort(cosine_sim)[-n:][::-1]
     if decode:
@@ -201,7 +186,6 @@ def get_top_similar_tokens(
         result = [tokenizer.decode([i]) for i in top_indices]
     else:
         result = top_indices
-    print(f"Top similar tokens: {result}")
     if return_similarity:
         return result, cosine_sim[top_indices]
     return result
