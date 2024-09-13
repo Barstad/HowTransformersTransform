@@ -15,9 +15,10 @@ interface D3WordCloudProps {
   selectedTokenIndex: number;
   selectedLayer: number;
   model: 'small' | 'large';
+  variant: 'input' | 'output';
 }
 
-const D3WordCloud: React.FC<D3WordCloudProps> = ({ selectedTokenIndex, selectedLayer, model }) => {
+const D3WordCloud: React.FC<D3WordCloudProps> = ({ selectedTokenIndex, selectedLayer, model, variant }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
@@ -31,7 +32,8 @@ const D3WordCloud: React.FC<D3WordCloudProps> = ({ selectedTokenIndex, selectedL
           layer_idx: selectedLayer,
           prompt: { text: '' },
           num_tokens: 100,
-          model: model
+          model: model,
+          table: variant
         });
 
         const { tokens, similarities } = response.data;
@@ -49,7 +51,7 @@ const D3WordCloud: React.FC<D3WordCloudProps> = ({ selectedTokenIndex, selectedL
     };
 
     fetchWords();
-  }, [selectedTokenIndex, selectedLayer, model]);
+  }, [selectedTokenIndex, selectedLayer, model, variant]);
 
   useEffect(() => {
     const updateDimensions = () => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import similarities from '../data/prompt_similarities.json'
 
 interface Token {
   text: string;

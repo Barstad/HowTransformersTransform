@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import TokenDisplay from './components/TokenDisplay';
 import WordCloud from './components/WordCloud';
-import Plot2dPointsD3 from './components/Plot2dPointsD3';
+// import Plot2dPointsD3 from './components/Plot2dPointsD3';
 import LayerMenu from './components/SelectMenu';
 import './App.css'; // Add this import for custom styles
 
@@ -29,7 +29,6 @@ Transformer models are mysterious things. A token mapped to an integer goes in, 
 This tool explores how tokens transform as they move through the layers of a transformer model. The approach is simple, try to visualize how tokens relate by leveraging that they keep to the same embedding space. Let's explore how relations between tokens changes as they are transformed. They start out as an entry in an embedding matrix, and are gradually transformed into something else. This is fascinating, and hopefully this tool can help build some intuition.
   `;
 
-  // TODO: Make plotd2points work with layer_idx
 
   return (
     <div className="app-container min-h-screen flex flex-col">
@@ -67,17 +66,24 @@ This tool explores how tokens transform as they move through the layers of a tra
         </div>
         <div className="plots-container flex-grow flex flex-col sm:flex-row gap-4">
           <div className="word-cloud flex-1">
-            <h2 className="word-cloud-header">Most similar tokens</h2>
+            <h2 className="word-cloud-header">Most similar based on input embedding</h2>
             <div className="h-full">
               <WordCloud
                 selectedTokenIndex={selectedTokenIndex}
                 selectedLayer={selectedLayer}
                 model={selectedModel}
+                variant="input"
               />
             </div>
           </div>
           <div className="embeddings-plot flex-1">
-            <h2 className="plot-2d-header">2D Projections</h2>
+            <h2 className="plot-2d-header">Most similar based on output projection</h2>
+            <WordCloud
+                selectedTokenIndex={selectedTokenIndex}
+                selectedLayer={selectedLayer}
+                model={selectedModel}
+                variant="output"
+              />
             {/* <Plot2dPointsD3 layer_idx={selectedLayer} model={selectedModel} /> */}
           </div>
         </div>
