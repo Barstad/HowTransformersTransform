@@ -13,7 +13,7 @@ interface LayerMenuProps {
 }
 
 const LayerMenu: React.FC<LayerMenuProps> = ({ onLayerSelect, model }) => {
-  const layerCount = model === 'small' ? 33 : 29;
+  const layerCount = model === 'small' ? 34 : 30;
   const layers = Array.from({ length: layerCount }, (_, i) => i);
 
   return (

@@ -5,6 +5,7 @@ import WordCloud from './components/WordCloud';
 // import Plot2dPointsD3 from './components/Plot2dPointsD3';
 import LayerMenu from './components/SelectMenu';
 import './App.css'; // Add this import for custom styles
+import FlowVisual from './components/FlowVisual';
 
 const App: React.FC = () => {
   const [selectedTokenIndex, setSelectedTokenIndex] = useState<number>(0);
@@ -86,6 +87,14 @@ This tool explores how tokens transform as they move through the layers of a tra
               />
             {/* <Plot2dPointsD3 layer_idx={selectedLayer} model={selectedModel} /> */}
           </div>
+        </div>
+        <div className="flow-visual-container">
+          <h2 className="text-xl mb-2">Token Evolution Timeline</h2>
+          <FlowVisual
+            selectedTokenIndex={selectedTokenIndex}
+            model={selectedModel}
+            variant="input"
+          />
         </div>
       </main>
     </div>

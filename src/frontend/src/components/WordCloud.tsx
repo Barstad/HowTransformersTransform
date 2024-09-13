@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import cloud from 'd3-cloud';
-import axios from 'axios';
+import inputData from '../data/most_similar_global_input.json';
+import outputData from '../data/most_similar_global_output.json';
 
 interface Word {
   text: string;
@@ -18,6 +19,17 @@ interface D3WordCloudProps {
   variant: 'input' | 'output';
 }
 
+interface SimilarityData {
+  [model: string]: {
+    [layer: string]: {
+      [tokenIndex: string]: {
+        tokens: string[];
+        similarities: number[];
+      };
+    };
+  };
+}
+
 const D3WordCloud: React.FC<D3WordCloudProps> = ({ selectedTokenIndex, selectedLayer, model, variant }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -25,32 +37,21 @@ const D3WordCloud: React.FC<D3WordCloudProps> = ({ selectedTokenIndex, selectedL
   const [words, setWords] = useState<Word[]>([]);
 
   useEffect(() => {
-    const fetchWords = async () => {
-      try {
-        const response = await axios.post('http://localhost:8000/get_most_similar_global', {
-          token_idx: selectedTokenIndex,
-          layer_idx: selectedLayer,
-          prompt: { text: '' },
-          num_tokens: 100,
-          model: model,
-          table: variant
-        });
+    const similarityData: SimilarityData = variant === 'input' ? inputData as SimilarityData : outputData as SimilarityData;
+    const layerData = similarityData[model]?.[selectedLayer.toString()];
+    const tokenData = layerData?.[selectedTokenIndex.toString()];
 
-        const { tokens, similarities } = response.data;
-        const maxSimilarity = Math.max(...similarities);
-        const minSimilarity = Math.min(...similarities);
-        const newWords = tokens.map((token: string, index: number) => ({
-          text: token,
-          size: 10 + (similarities[index] - minSimilarity) / (maxSimilarity - minSimilarity) * 90,
-        }));
+    if (tokenData) {
+      const { tokens, similarities } = tokenData;
+      const maxSimilarity = Math.max(...similarities);
+      const minSimilarity = Math.min(...similarities);
+      const newWords = tokens.map((token: string, index: number) => ({
+        text: token,
+        size: 10 + (similarities[index] - minSimilarity) / (maxSimilarity - minSimilarity) * 90,
+      }));
 
-        setWords(newWords);
-      } catch (error) {
-        console.error('Error fetching word cloud data:', error);
-      }
-    };
-
-    fetchWords();
+      setWords(newWords);
+    }
   }, [selectedTokenIndex, selectedLayer, model, variant]);
 
   useEffect(() => {

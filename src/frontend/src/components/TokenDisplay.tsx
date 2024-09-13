@@ -1,6 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import similarities from '../data/prompt_similarities.json'
+import similarities from '../data/prompt_similarities.json';
+
+// Add this type definition
+type SimilarityData = {
+  [key in 'small' | 'large']: {
+    prompt_tokens: string[];
+    layers: {
+      [layer: string]: {
+        [tokenIndex: string]: {
+          similarities: number[];
+        };
+      };
+    };
+  };
+};
+
+// Cast the imported similarities
+const typedSimilarities = similarities as SimilarityData;
 
 interface Token {
   text: string;
@@ -17,41 +33,46 @@ const TokenDisplay: React.FC<TokenDisplayProps> = ({ onTokenClick, selectedLayer
   const [tokens, setTokens] = useState<Token[]>([]);
   const [clickedIndex, setClickedIndex] = useState<number | null>(null);
 
-  const fetchTokenSimilarities = async (tokenIdx: number = 0) => {
-    try {
-      const response = await axios.post('http://localhost:8000/token_similarities', {
-        token_idx: tokenIdx,
-        layer_idx: selectedLayer,
-        prompt: { text: '' },
-        model: model
-      });
-      const { tokens: newTokens, similarities } = response.data;
-      setTokens(newTokens.map((text: string, i: number) => ({ text, similarity: similarities[i] })));
-    } catch (error) {
-      console.error('Error fetching token similarities:', error);
-    }
-  };
-
   useEffect(() => {
-    fetchTokenSimilarities(clickedIndex !== null ? clickedIndex : 0);
-  }, [selectedLayer, clickedIndex]);
+    const modelData = typedSimilarities[model];
+    const promptTokens = modelData.prompt_tokens;
+    const tokenSimilarities = clickedIndex !== null
+      ? modelData.layers[selectedLayer.toString()]?.[clickedIndex.toString()]?.similarities ?? []
+      : [];
+
+    const newTokens = promptTokens.map((text: string, i: number) => ({
+      text,
+      similarity: tokenSimilarities[i]
+    }));
+
+    setTokens(newTokens);
+  }, [selectedLayer, clickedIndex, model]);
 
   const handleTokenClick = (index: number) => {
     if (index === clickedIndex) {
-      // Deselect the token if it's already selected
       setClickedIndex(null);
-      onTokenClick(-1); // Use -1 to indicate no token is selected
+      onTokenClick(-1);
     } else {
       setClickedIndex(index);
       onTokenClick(index);
     }
-    fetchTokenSimilarities(index);
   };
 
   const getBackgroundColor = (similarity: number | undefined) => {
     if (similarity === undefined) return 'transparent';
-    const hue = similarity * 120;
-    return `hsl(${hue}, 100%, 75%)`;
+    
+    // Find min and max similarities
+    const similarities = tokens.map(token => token.similarity).filter((s): s is number => s !== undefined);
+    const minSimilarity = Math.min(...similarities);
+    const maxSimilarity = Math.max(...similarities);
+    
+    // Min/max scaling
+    const scaledSimilarity = (similarity - minSimilarity) / (maxSimilarity - minSimilarity);
+    
+    // Map scaled similarity to hue range [0, 120] (red to green)
+    const hue = scaledSimilarity * 120;
+    
+    return `hsl(${hue}, 100%, 80%)`;
   };
 
   return (

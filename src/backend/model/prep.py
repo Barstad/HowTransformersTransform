@@ -45,16 +45,17 @@ def prep_models(models:list[str]):
         preprocess_and_save(model)
 
 
-def cosine_similarity_except_self(emb, embeddings):
-    prompt_similarities = cosine_similarity(emb, embeddings)
-    one_mask = np.isclose(prompt_similarities, 1, atol=1e-3)
-    non_one_max = np.max(prompt_similarities[~one_mask])
-    prompt_max_sim = non_one_max
-    prompt_min_sim = np.min(prompt_similarities)
-    new_similarities = np.clip(prompt_similarities, prompt_min_sim, prompt_max_sim)
-    normalized_similarities = (new_similarities - prompt_min_sim) / (prompt_max_sim - prompt_min_sim)
-    return normalized_similarities
 
+def similarity_except_max(emb, embeddings):
+    prompt_similarities = cosine_similarity(emb, embeddings)
+    max_sim = np.max(prompt_similarities, axis = 1)
+    mask = prompt_similarities<max_sim
+
+    second_to_max = np.max(np.where(~mask, -1e9, prompt_similarities), axis = 1)
+    clipped = np.clip(prompt_similarities, np.min(prompt_similarities, axis = 1), second_to_max)
+
+    normalized = (clipped - np.min(prompt_similarities, axis = 1)) / (second_to_max - np.min(prompt_similarities, axis = 1))
+    return normalized
 
 
 def load_data(model_name:str) -> tuple:
@@ -95,10 +96,10 @@ def get_token_similarities(model_attributes: dict, token_idx, layer_idx, prompt 
         prompt_embeddings = get_token_embeddings(token_ids, embeddings_table)
     else:
         hidden_states = model_attributes.get("hidden_states")
-        prompt_embeddings = hidden_states.hidden_states[layer_idx].squeeze(0)
+        prompt_embeddings = hidden_states.hidden_states[layer_idx-1].squeeze(0)
 
     current_emb = prompt_embeddings[token_idx].reshape(1, -1)
-    similarities = cosine_similarity_except_self(current_emb, prompt_embeddings).flatten().tolist()
+    similarities = similarity_except_max(current_emb, prompt_embeddings).flatten().tolist()
     tokens = tokenize_prompt(model_attributes, tokenizer.encode(prompt, add_special_tokens=False))["tokens"]
 
     return {"tokens": tokens, "similarities": similarities}
@@ -119,11 +120,11 @@ def get_most_similar_global(model_attributes: dict, token_idx, layer_idx, num_to
         prompt_embeddings = get_token_embeddings(token_ids, embeddings_table)
     else:
         hidden_states = model_attributes.get("hidden_states")
-        prompt_embeddings = hidden_states.hidden_states[layer_idx].squeeze(0)
+        prompt_embeddings = hidden_states.hidden_states[layer_idx-1].squeeze(0)
     current_emb = prompt_embeddings[token_idx].reshape(1, -1)
 
     # Calculate similarities with all tokens in the vocabulary
-    all_similarities = cosine_similarity(current_emb, embeddings_table).flatten()
+    all_similarities = similarity_except_max(current_emb, embeddings_table).flatten()
     # Get the top 50 most similar tokens
     top_k = num_tokens
     sort_idx = np.argsort(all_similarities)[::-1]
@@ -146,15 +147,16 @@ def prep_input_data():
         prompt_tokens = tokenize_prompt(model_attributes, tokens)["tokens"]
         input_data[model_abbr] = {}
         input_data[model_abbr]["prompt_tokens"] = prompt_tokens
+        input_data[model_abbr]["layers"] = {}
         
-        for layer_idx in range(len(model_attributes["hidden_states"].hidden_states)):
-            input_data[model_abbr][layer_idx] = {}
-            print(f"Processing layer {layer_idx}/{len(model_attributes['hidden_states'].hidden_states) - 1}")
+        for layer_idx in range(len(model_attributes["hidden_states"].hidden_states)+1): # +1 for embedding table
+            input_data[model_abbr]["layers"][layer_idx] = {}
+            print(f"Processing layer {layer_idx}/{len(model_attributes['hidden_states'].hidden_states)}")
             for token_idx, token in enumerate(tokens):
                 token_similarities = get_token_similarities(model_attributes, token_idx, layer_idx, prompt=PROMPT)["similarities"]
                 most_similar_global_input = get_most_similar_global(model_attributes, token_idx, layer_idx, 100, "input", prompt=PROMPT)
                 most_similar_global_output = get_most_similar_global(model_attributes, token_idx, layer_idx, 100, "output", prompt=PROMPT)
-                input_data[model_abbr][layer_idx][token_idx] = {
+                input_data[model_abbr]["layers"][layer_idx][token_idx] = {
                     "prompt_token_similarities": token_similarities,
                     "most_similar_global_input": most_similar_global_input,
                     "most_similar_global_output": most_similar_global_output
@@ -178,16 +180,18 @@ def split_file():
 
     for model_abbr, model_data in data.items():
         prompt_tokens = model_data["prompt_tokens"]
+        layers = model_data["layers"]
         prompt_similarities[model_abbr] = {"prompt_tokens": prompt_tokens, "layers": {}}
         most_similar_global_input[model_abbr] = {}
         most_similar_global_output[model_abbr] = {}
 
-        for layer_idx in [key for key in model_data.keys() if key != "prompt_tokens"]:
+        for layer_idx in layers.keys():
             prompt_similarities[model_abbr]["layers"][layer_idx] = {}
             most_similar_global_input[model_abbr][layer_idx] = {}
             most_similar_global_output[model_abbr][layer_idx] = {}
+
             for token_idx, token in enumerate(prompt_tokens):
-                layer_data = model_data[str(layer_idx)][str(token_idx)]
+                layer_data = layers[str(layer_idx)][str(token_idx)]
                 prompt_similarities[model_abbr]["layers"][layer_idx][token_idx] = {
                     "similarities": layer_data["prompt_token_similarities"]}
                 most_similar_global_input[model_abbr][layer_idx][token_idx] = layer_data["most_similar_global_input"]
