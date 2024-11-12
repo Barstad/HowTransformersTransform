@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import cloud from 'd3-cloud';
 import inputData from '../data/most_similar_global_input.json';
@@ -35,6 +35,10 @@ const FlowVisual: React.FC<FlowVisualProps> = ({ selectedTokenIndex, model, vari
   const margin = { top: nodeRadius + 30, right: 120, bottom: nodeRadius + 30, left: 120 };
   const minVerticalSpacing = nodeRadius * 3; // Increased minimum vertical spacing
 
+  const similarityData = useMemo(() => (variant === 'input' ? inputData : outputData) as SimilarityData, [variant]);
+  const modelData = useMemo(() => similarityData[model] || {}, [similarityData, model]);
+  const layers = useMemo(() => Object.keys(modelData).sort((a, b) => parseInt(a) - parseInt(b)), [modelData]);
+
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
@@ -62,10 +66,6 @@ const FlowVisual: React.FC<FlowVisualProps> = ({ selectedTokenIndex, model, vari
 
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove(); // Clear previous render
-
-    const similarityData: SimilarityData = (variant === 'input' ? inputData : outputData) as SimilarityData;
-    const modelData = similarityData[model] || {};
-    const layers = Object.keys(modelData).sort((a, b) => parseInt(a) - parseInt(b));
 
     console.log('Layers:', layers);
 
@@ -166,13 +166,13 @@ const FlowVisual: React.FC<FlowVisualProps> = ({ selectedTokenIndex, model, vari
 
         cloudGroup.selectAll("text")
           .data(words)
-          .enter().append("text")
+          .join("text")
           .style("font-size", d => `${d.size}px`)
           .style("font-family", "Arial")
           .attr("text-anchor", "middle")
           .attr("transform", d => `translate(${d.x},${d.y}) rotate(${d.rotate})`)
           .text(d => d.text)
-          .attr("opacity", 0);
+          .attr("opacity", 1);
 
         // Get the bounding box of the entire word cloud
         const bbox = cloudGroup.node()!.getBBox();
@@ -188,11 +188,7 @@ const FlowVisual: React.FC<FlowVisualProps> = ({ selectedTokenIndex, model, vari
 
         cloudGroup.selectAll("text")
           .on("mouseover", function() { d3.select(this).style("opacity", 0.7); })
-          .on("mouseout", function() { d3.select(this).style("opacity", 1); })
-          .transition()
-          .delay((_, i) => i * 50)
-          .duration(500)
-          .attr("opacity", 1);
+          .on("mouseout", function() { d3.select(this).style("opacity", 1); });
       }
 
       // Layer label
@@ -223,7 +219,7 @@ const FlowVisual: React.FC<FlowVisualProps> = ({ selectedTokenIndex, model, vari
 
     console.log('Rendering complete');
 
-  }, [selectedTokenIndex, model, variant, dimensions, margin.top, margin.right, margin.bottom, margin.left]);
+  }, [selectedTokenIndex, model, variant, dimensions, margin.top, margin.right, margin.bottom, margin.left, layers, modelData]);
 
   return (
     <div ref={containerRef} className="flow-visual-container w-full h-full" style={{ position: 'relative', minHeight: '500px' }}>
