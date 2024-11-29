@@ -38,9 +38,9 @@ def load_data(model_name:str):
     input_embeddings_table = get_token_embeddings_table(model_name, "input")
     output_embeddings_table = get_token_embeddings_table(model_name, "output")
     token_ids = get_prompt_token_ids(PROMPT, tokenizer)
-    # umap_model = get_umap_model(model_name)
+    umap_model = get_umap_model(model_name)
     
-    # embed_2d = get_2d_representation(model_name, umap_model, embeddings_table, load=True)
+    embed_2d = get_2d_representation(model_name, umap_model, input_embeddings_table, load=True)
 
     attributes = {
         "prompt": PROMPT,
@@ -48,9 +48,9 @@ def load_data(model_name:str):
         "hidden_states": hidden_states,
         "input_embeddings_table": input_embeddings_table,
         "output_embeddings_table": output_embeddings_table,
-        # "umap_model": umap_model,
+        "umap_model": umap_model,
         "token_ids": token_ids,
-        # "embed_2d": embed_2d
+        "embed_2d": embed_2d
     }
 
     return attributes
@@ -110,6 +110,7 @@ class MostSimilarGlobalResponse(BaseModel):
 
 class GetTokenResponse(BaseModel):
     tokens: list[str]
+
 class GetTokenIdsResponse(BaseModel):
     token_ids: list[int]
 
@@ -131,6 +132,7 @@ class Get2DPointsRequest(BaseModel):
     prompt: Prompt
     layer_idx: Optional[int] = Field(default=0)
     model: Optional[str] = Field(default="small")
+
 class CloudResponse(BaseModel):
     tokens: list[str]
     x: list[float]
@@ -240,78 +242,78 @@ def get_most_similar_global(request: MostSimilarGlobalRequest) -> MostSimilarGlo
     )
 
 
-# def get_2d_cloud_points(model:str, sample_rate: float):
-#     embeddings_table = MODEL_ATTRIBUTES[model].get("embeddings_table")
-#     umap_model = MODEL_ATTRIBUTES[model].get("umap_model")
-#     model_name = MODEL_NAME_MAPPING.get(model, None)
-#     if not model_name:
-#         raise HTTPException(status_code=400, detail="Model not found")
-#     points = get_2d_representation(model_name, umap_model, embeddings_table, load=True)
+def get_2d_cloud_points(model:str, sample_rate: float):
+    embeddings_table = MODEL_ATTRIBUTES[model].get("embeddings_table")
+    umap_model = MODEL_ATTRIBUTES[model].get("umap_model")
+    model_name = MODEL_NAME_MAPPING.get(model, None)
+    if not model_name:
+        raise HTTPException(status_code=400, detail="Model not found")
+    points = get_2d_representation(model_name, umap_model, embeddings_table, load=True)
 
-#     # Match tokens to points
-#     tokens = MODEL_ATTRIBUTES[model].get("tokenizer").convert_ids_to_tokens(np.arange(len(points)))
-#     mask = [token is not None for token in tokens]
-#     # Set sample rate of mask to True
-#     sampling_mask = np.random.choice([True, False], size=len(tokens), p=[sample_rate, 1-sample_rate])
-#     # Combine the masks
-#     mask = np.logical_and(mask, sampling_mask)
+    # Match tokens to points
+    tokens = MODEL_ATTRIBUTES[model].get("tokenizer").convert_ids_to_tokens(np.arange(len(points)))
+    mask = [token is not None for token in tokens]
+    # Set sample rate of mask to True
+    sampling_mask = np.random.choice([True, False], size=len(tokens), p=[sample_rate, 1-sample_rate])
+    # Combine the masks
+    mask = np.logical_and(mask, sampling_mask)
 
-#     filtered_tokens = list(compress(tokens, mask))
-#     filtered_x = points[:, 0][mask].tolist()
-#     filtered_y = points[:, 1][mask].tolist()
+    filtered_tokens = list(compress(tokens, mask))
+    filtered_x = points[:, 0][mask].tolist()
+    filtered_y = points[:, 1][mask].tolist()
 
-#     total_count = len(filtered_tokens)
-#     return dict(
-#         tokens=filtered_tokens,
-#         x=filtered_x,
-#         y=filtered_y,
-#         total_count=total_count
-#     )
-
-
-# @app.post("/get_2d_cloud", response_model=CloudResponse)
-# def get_2d_cloud(request: CloudRequest) -> CloudResponse:
-#     sample_rate = request.sample_rate
-#     model = request.model
-#     data = get_2d_cloud_points(model, sample_rate)
-#     return CloudResponse(**data)
+    total_count = len(filtered_tokens)
+    return dict(
+        tokens=filtered_tokens,
+        x=filtered_x,
+        y=filtered_y,
+        total_count=total_count
+    )
 
 
-# @app.post("/get_additional_points", response_model=CloudResponse)
-# def get_additional_points(request: Get2DPointsRequest) -> CloudResponse:
-#     layer_idx = request.layer_idx
-#     model = request.model
+@app.post("/get_2d_cloud", response_model=CloudResponse)
+def get_2d_cloud(request: CloudRequest) -> CloudResponse:
+    sample_rate = request.sample_rate
+    model = request.model
+    data = get_2d_cloud_points(model, sample_rate)
+    return CloudResponse(**data)
 
-#     if request.prompt.text:
-#         prompt = request.prompt.text
-#     else:
-#         prompt = PROMPT
 
-#     if ADDITIONAL_POINTS_CACHE.get((model, prompt, layer_idx), None):
-#         return CloudResponse(**ADDITIONAL_POINTS_CACHE.get((model, prompt, layer_idx)))
+@app.post("/get_additional_points", response_model=CloudResponse)
+def get_additional_points(request: Get2DPointsRequest) -> CloudResponse:
+    layer_idx = request.layer_idx
+    model = request.model
 
-#     tokenizer = MODEL_ATTRIBUTES[model].get("tokenizer")
-#     token_ids = get_prompt_token_ids(prompt, tokenizer)
+    if request.prompt.text:
+        prompt = request.prompt.text
+    else:
+        prompt = PROMPT
 
-#     if layer_idx == 0:
-#         embeddings_table = MODEL_ATTRIBUTES[model].get("embeddings_table")
-#         prompt_embeddings = get_token_embeddings(token_ids, embeddings_table)
-#     else:
-#         hidden_states = MODEL_ATTRIBUTES[model].get("hidden_states")
-#         prompt_embeddings = hidden_states.hidden_states[layer_idx].squeeze(0)
+    if ADDITIONAL_POINTS_CACHE.get((model, prompt, layer_idx), None):
+        return CloudResponse(**ADDITIONAL_POINTS_CACHE.get((model, prompt, layer_idx)))
+
+    tokenizer = MODEL_ATTRIBUTES[model].get("tokenizer")
+    token_ids = get_prompt_token_ids(prompt, tokenizer)
+
+    if layer_idx == 0:
+        embeddings_table = MODEL_ATTRIBUTES[model].get("embeddings_table")
+        prompt_embeddings = get_token_embeddings(token_ids, embeddings_table)
+    else:
+        hidden_states = MODEL_ATTRIBUTES[model].get("hidden_states")
+        prompt_embeddings = hidden_states.hidden_states[layer_idx].squeeze(0)
     
-#     umap_model = MODEL_ATTRIBUTES[model].get("umap_model")
-#     points = umap_model.transform(prompt_embeddings)
-#     tokens = tokenize_prompt(model, tokenizer.encode(prompt, add_special_tokens=False))["tokens"]
+    umap_model = MODEL_ATTRIBUTES[model].get("umap_model")
+    points = umap_model.transform(prompt_embeddings)
+    tokens = tokenize_prompt(model, tokenizer.encode(prompt, add_special_tokens=False))["tokens"]
 
-#     ADDITIONAL_POINTS_CACHE[(model, prompt, layer_idx)] = dict(
-#         tokens=tokens,
-#         x=points[:, 0],
-#         y=points[:, 1],
-#         total_count=len(tokens)
-#     )
+    ADDITIONAL_POINTS_CACHE[(model, prompt, layer_idx)] = dict(
+        tokens=tokens,
+        x=points[:, 0],
+        y=points[:, 1],
+        total_count=len(tokens)
+    )
 
-#     return CloudResponse(**ADDITIONAL_POINTS_CACHE[(model, prompt, layer_idx)])
+    return CloudResponse(**ADDITIONAL_POINTS_CACHE[(model, prompt, layer_idx)])
 
 
 
